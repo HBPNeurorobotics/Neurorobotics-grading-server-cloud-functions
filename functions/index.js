@@ -21,12 +21,12 @@ exports.updateUsers = functions.firestore.document('submissions/{submissionId}')
     if (createdDoc.userInfo) {
         const userInfo = createdDoc.userInfo;
         const submissionDate = createdDoc.date;
-        // Get the 'users' collection from the Firestore
-        const usersCollection = db.collection('users');
-        const usersRef = usersCollection.doc(createdDoc.submissionInfo); // submissionInfo is a string which contains the name of the relevant MOOC
-        const usersRefPromise = usersRef.get().then(doc => {
-            let usersDocData = doc.data();
-            let usersDocDataObject = { 
+        const submissionInfo =  String(createdDoc.submissionInfo);
+        // Get the 'users/<MOOC description>' doc from the Firestore
+        const userRef = db.doc('users/' + String(userInfo.id)); 
+        const userRefPromise = userRef.get().then(doc => {
+            let userDocData = doc.data();
+            let userDocDataObject = { 
                 userInfo: userInfo, 
                 latestSubmission: submissionDate,  
                 firstSubmission: submissionDate,
@@ -37,31 +37,31 @@ exports.updateUsers = functions.firestore.document('submissions/{submissionId}')
                 bestAnswer: Number(createdDoc.answer),
                 numberOfSubmissions: Number(1)
             };
-            if (!usersDocData) {
+            if (!userDocData) {
                 // The 'users' document needs to be created
-                usersDocData = {};
-                usersDocData[String(userInfo.id)] = usersDocDataObject;
-                return usersRef.set(usersDocData);
-            // The 'users' document exists
+                userDocData = {}; // submissionInfo is a string which contains the name of the relevant MOOC
+                userDocData[submissionInfo] = userDocDataObject;
+                return userRef.set(userDocData);
+            // The 'users/<user-id>' document exists
             } else {
-                usersDocDataObject.numberOfSubmissions = 0;
-                usersDocDataObject = usersDocData[String(userInfo.id)] ? usersDocData[String(userInfo.id)] : usersDocDataObject;
-                usersDocDataObject.latestSubmission = submissionDate;
-                usersDocDataObject.fileName = String(createdDoc.fileName);
-                usersDocDataObject.latestFileContent = String(createdDoc.fileContent);
+                userDocDataObject.numberOfSubmissions = 0;
+                userDocDataObject = userDocData[submissionInfo] ? userDocData[submissionInfo] : userDocDataObject;
+                userDocDataObject.latestSubmission = submissionDate;
+                userDocDataObject.fileName = String(createdDoc.fileName);
+                userDocDataObject.latestFileContent = String(createdDoc.fileContent);
                 let answer = Number(createdDoc.answer);
-                usersDocDataObject.latestAnswer = Number(answer);
-                const n = usersDocDataObject.numberOfSubmissions + 1;
-                usersDocDataObject.answers[String(n)] = Number(answer);
-                let bestAnswer = Number(usersDocDataObject.bestAnswer);
-                usersDocDataObject.bestAnswer = Math.max(Number(bestAnswer), Number(answer));
-                usersDocDataObject.numberOfSubmissions = Number(n);
-                usersDocData[String(userInfo.id)] = usersDocDataObject;
-                return usersRef.update(usersDocData);
+                userDocDataObject.latestAnswer = Number(answer);
+                const n = userDocDataObject.numberOfSubmissions + 1;
+                userDocDataObject.answers[String(n)] = Number(answer);
+                let bestAnswer = Number(userDocDataObject.bestAnswer);
+                userDocDataObject.bestAnswer = Math.max(Number(bestAnswer), Number(answer));
+                userDocDataObject.numberOfSubmissions = Number(n);
+                userDocData[submissionInfo] = userDocDataObject;
+                return userRef.update(userDocData);
             }
 
         });
-        return usersRefPromise;
+        return userRefPromise;
     }
     return Promise.reject(new Error(
         "Missing userInfo field: the update of the users document failed."
