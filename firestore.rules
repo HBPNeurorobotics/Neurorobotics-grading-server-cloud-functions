@@ -1,0 +1,15 @@
+service cloud.firestore {
+   match /databases/{database}/documents {
+   
+     match /{document=**} {
+        function isSignedIn() {
+          return request.auth != null;
+        }
+        function isAuthorizedUser() {
+        	return request.auth.token.email_verified;
+        }
+        allow read: if (isSignedIn() && isAuthorizedUser());
+        allow write: if (isSignedIn() && isAuthorizedUser());
+     }
+   }
+}
