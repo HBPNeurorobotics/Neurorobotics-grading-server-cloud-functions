@@ -21,42 +21,44 @@ exports.updateUsers = functions.firestore.document('submissions/{submissionId}')
     if (createdDoc.userInfo) {
         const userInfo = createdDoc.userInfo;
         const submissionDate = createdDoc.date;
-        const submissionInfo =  String(createdDoc.submissionInfo);
+        const header =  String(createdDoc.submissionInfo.header);
+        const subheader =  String(createdDoc.submissionInfo.subheader);
         // Get the 'users/<MOOC description>' doc from the Firestore
         const userRef = db.doc('users/' + String(userInfo.id)); 
         const userRefPromise = userRef.get().then(doc => {
             let userDocData = doc.data();
-            let userDocDataObject = { 
-                userInfo: userInfo, 
+            let userDocDataObject = {  
                 latestSubmission: submissionDate,  
                 firstSubmission: submissionDate,
                 fileName: createdDoc.fileName,
                 latestFileContent: createdDoc.fileContent,
-                latestAnswer: Number(createdDoc.answer),
-                answers: { '1': Number(createdDoc.answer) },
-                bestAnswer: Number(createdDoc.answer),
+                latestScores: createdDoc.answer,
                 numberOfSubmissions: Number(1)
             };
             if (!userDocData) {
                 // The 'users' document needs to be created
-                userDocData = {}; // submissionInfo is a string which contains the name of the relevant MOOC
-                userDocData[submissionInfo] = userDocDataObject;
+                userDocData = {}; // header is a string which contains the name of the relevant MOOC
+                userDocData[header] = {};
+                userDocData[header][subheader] = userDocDataObject;
+                userDocData.userInfo = userInfo;
                 return userRef.set(userDocData);
             // The 'users/<user-id>' document exists
             } else {
                 userDocDataObject.numberOfSubmissions = 0;
-                userDocDataObject = userDocData[submissionInfo] ? userDocData[submissionInfo] : userDocDataObject;
+                // Modify the user doc if it exists
+                if (userDocData[header] && userDocData[header][subheader]) userDocDataObject = userDocData[header][subheader]
                 userDocDataObject.latestSubmission = submissionDate;
                 userDocDataObject.fileName = String(createdDoc.fileName);
                 userDocDataObject.latestFileContent = String(createdDoc.fileContent);
-                let answer = Number(createdDoc.answer);
-                userDocDataObject.latestAnswer = Number(answer);
+                userDocDataObject.latestScores = createdDoc.answer;
                 const n = userDocDataObject.numberOfSubmissions + 1;
-                userDocDataObject.answers[String(n)] = Number(answer);
-                let bestAnswer = Number(userDocDataObject.bestAnswer);
-                userDocDataObject.bestAnswer = Math.max(Number(bestAnswer), Number(answer));
                 userDocDataObject.numberOfSubmissions = Number(n);
-                userDocData[submissionInfo] = userDocDataObject;
+                // Submit the updated user doc
+                if (userDocData[header]) userDocData[header][subheader] = userDocDataObject;
+                else { 
+                    userDocData[header] = {};
+                    userDocData[header][subheader] = userDocDataObject;
+                }
                 return userRef.update(userDocData);
             }
 
